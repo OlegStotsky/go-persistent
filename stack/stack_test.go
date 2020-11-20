@@ -38,3 +38,30 @@ func TestEmptyStackPushAndThenPop(t *testing.T) {
 		assert.Equal(t, err, TopOfEmptyStackError)
 	}
 }
+
+func TestNonEmptyStackPush(t *testing.T) {
+	e := nonEmptyStack{
+		tail: emptyStackInstance,
+		elem: 5,
+	}
+	newE := e.Push(1)
+	elem, err := newE.Top()
+	assert.NoError(t, err)
+	assert.Equal(t, elem, 1)
+}
+
+func TestNonEmptyStackStressPush(t *testing.T) {
+	var e Stack = &nonEmptyStack{
+		tail: emptyStackInstance,
+		elem: 5,
+	}
+	cnt := 0
+	for i := 0; i < 1000; i++ {
+		newE := e.Push(cnt)
+		elem, err := newE.Top()
+		assert.NoError(t, err)
+		assert.Equal(t, elem, cnt)
+		cnt++
+		e = newE
+	}
+}
