@@ -25,7 +25,7 @@ func (e emptyStack) Top() (interface{}, error) {
 }
 
 func (e emptyStack) Push(elem interface{}) Stack {
-	return nonEmptyStack{
+	return &nonEmptyStack{
 		tail: e,
 		elem: elem,
 	}
@@ -40,12 +40,12 @@ type nonEmptyStack struct {
 	elem interface{}
 }
 
-func (n nonEmptyStack) Top() (interface{}, error) {
+func (n *nonEmptyStack) Top() (interface{}, error) {
 	return n.elem, nil
 }
 
-func (n nonEmptyStack) Push(elem interface{}) Stack {
-	return nonEmptyStack{tail: n, elem: elem}
+func (n *nonEmptyStack) Push(elem interface{}) Stack {
+	return &nonEmptyStack{tail: n, elem: elem}
 }
 
 func (n nonEmptyStack) Pop() (Stack, error) {
