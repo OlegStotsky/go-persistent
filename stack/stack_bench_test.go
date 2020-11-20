@@ -1,6 +1,7 @@
 package stack
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -67,30 +68,38 @@ func NewUserEditHistoryImmutable(history Stack) *UserEditHistoryImmutable {
 }
 
 func BenchmarkMutableStackPush(b *testing.B) {
-	userEditHistory := NewUserEditHistoryMutable(NewMutableStack())
-	b.ReportAllocs()
-	b.SetParallelism(5000)
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			userEditHistory.history.Push(1)
-		}
-	})
+	numGoroutines := []int{1, 5, 100, 1000, 5000}
+	for _, curNum := range numGoroutines {
+		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
+			userEditHistory := NewUserEditHistoryMutable(NewMutableStack())
+			b.SetParallelism(curNum)
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					userEditHistory.history.Push(1)
+				}
+			})
+		})
+	}
 }
 
 func BenchmarkImmutableStackPush(b *testing.B) {
-	userEditHistory := NewUserEditHistoryImmutable(NewStack())
-	b.ReportAllocs()
-	b.SetParallelism(5000)
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			success := false
-			for !success {
-				oldVal := userEditHistory.history
-				newVal := (*(*Stack)(oldVal)).Push(1)
-				success = atomic.CompareAndSwapPointer(&userEditHistory.history, oldVal, unsafe.Pointer(&newVal))
-			}
-		}
-	})
+	numGoroutines := []int{1, 5, 100, 1000, 5000}
+	for _, curNum := range numGoroutines {
+		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
+			userEditHistory := NewUserEditHistoryImmutable(NewStack())
+			b.SetParallelism(curNum)
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					success := false
+					for !success {
+						oldVal := userEditHistory.history
+						newVal := (*(*Stack)(oldVal)).Push(1)
+						success = atomic.CompareAndSwapPointer(&userEditHistory.history, oldVal, unsafe.Pointer(&newVal))
+					}
+				}
+			})
+		})
+	}
 }
 
 func BenchmarkMutableStackPushAndTop(b *testing.B) {
