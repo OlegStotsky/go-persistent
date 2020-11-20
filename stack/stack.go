@@ -2,6 +2,12 @@ package stack
 
 import "errors"
 
+var (
+	TopOfEmptyStackError = errors.New("can't use top on empty stack")
+	PopOnEmptyStackError = errors.New("can't use pop on empty stack")
+	emptyStackInstance   = emptyStack{}
+)
+
 type Stack interface {
 	Top() (interface{}, error)
 	Push(elem interface{}) Stack
@@ -9,22 +15,20 @@ type Stack interface {
 }
 
 func NewStack() Stack {
-	return emptyStack{}
+	return emptyStackInstance
 }
 
 type emptyStack struct{}
-
-var (
-	TopOfEmptyStackError = errors.New("can't use top on empty stack")
-	PopOnEmptyStackError = errors.New("can't use pop on empty stack")
-)
 
 func (e emptyStack) Top() (interface{}, error) {
 	return nil, TopOfEmptyStackError
 }
 
 func (e emptyStack) Push(elem interface{}) Stack {
-	return nil
+	return nonEmptyStack{
+		tail: e,
+		elem: elem,
+	}
 }
 
 func (e emptyStack) Pop() (Stack, error) {
