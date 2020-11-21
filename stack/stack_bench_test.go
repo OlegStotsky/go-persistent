@@ -103,46 +103,54 @@ func BenchmarkImmutableStackPush(b *testing.B) {
 }
 
 func BenchmarkMutableStackPushAndTop(b *testing.B) {
-	userEditHistory := NewUserEditHistoryMutable(NewMutableStack())
-	b.ReportAllocs()
-	b.SetParallelism(5000)
-	n := 0
+	numGoroutines := []int{1, 5, 100, 1000, 5000}
 	mu := sync.Mutex{}
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			mu.Lock()
-			n++
-			if n%2 == 0 {
-				userEditHistory.history.Top()
-			} else {
-				userEditHistory.history.Push(1)
-			}
-			mu.Unlock()
-		}
-	})
+	cnt := 0
+	for _, curNum := range numGoroutines {
+		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
+			h := NewUserEditHistoryMutable(NewMutableStack())
+			b.SetParallelism(curNum)
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					mu.Lock()
+					if cnt%2 == 0 {
+						h.history.Push(1)
+					} else {
+						h.history.Top()
+					}
+					cnt++
+					mu.Unlock()
+				}
+			})
+		})
+	}
 }
 
 func BenchmarkImmutableStackPushAndTop(b *testing.B) {
-	userEditHistory := NewUserEditHistoryImmutable(NewStack())
-	b.ReportAllocs()
-	b.SetParallelism(5000)
-	n := 0
+	numGoroutines := []int{1, 5, 100, 1000, 5000}
 	mu := sync.Mutex{}
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			mu.Lock()
-			n++
-			if n%2 == 0 {
-				(*(*Stack)(userEditHistory.history)).Top()
-			} else {
-				success := false
-				for !success {
-					oldVal := userEditHistory.history
-					newVal := (*(*Stack)(oldVal)).Push(1)
-					success = atomic.CompareAndSwapPointer(&userEditHistory.history, oldVal, unsafe.Pointer(&newVal))
+	n := 0
+	for _, curNum := range numGoroutines {
+		h := NewUserEditHistoryImmutable(NewStack())
+		b.SetParallelism(curNum)
+		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					mu.Lock()
+					n++
+					if n%2 == 0 {
+						(*(*Stack)(h.history)).Top()
+					} else {
+						success := false
+						for !success {
+							oldVal := h.history
+							newVal := (*(*Stack)(oldVal)).Push(1)
+							success = atomic.CompareAndSwapPointer(&h.history, oldVal, unsafe.Pointer(&newVal))
+						}
+					}
+					mu.Unlock()
 				}
-			}
-			mu.Unlock()
-		}
-	})
+			})
+		})
+	}
 }
