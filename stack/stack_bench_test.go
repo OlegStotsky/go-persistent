@@ -102,6 +102,29 @@ func BenchmarkImmutableStackPush(b *testing.B) {
 	}
 }
 
+func BenchmarkImmutableStackPushWithPool(b *testing.B) {
+	numGoroutines := []int{1, 5, 100, 1000, 5000}
+	for _, curNum := range numGoroutines {
+		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
+			userEditHistory := NewUserEditHistoryImmutable(NewStack())
+			b.SetParallelism(curNum)
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					success := false
+					for !success {
+						oldVal := userEditHistory.history
+						newVal := (*(*Stack)(oldVal)).Push(1)
+						success = atomic.CompareAndSwapPointer(&userEditHistory.history, oldVal, unsafe.Pointer(&newVal))
+						if !success {
+							NonEmptyStackPool.Put(newVal)
+						}
+					}
+				}
+			})
+		})
+	}
+}
+
 func BenchmarkMutableStackPushAndTop(b *testing.B) {
 	numGoroutines := []int{1, 5, 100, 1000, 5000}
 	mu := sync.Mutex{}
