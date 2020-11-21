@@ -30,7 +30,7 @@ func BenchmarkImmutableStackPushWithPool(b *testing.B) {
 	}
 }
 
-func BenchmarkImmutableStackPushAndTopNoLockAndPool(b *testing.B) {
+func BenchmarkImmutablePooledStackPushAndTop(b *testing.B) {
 	numGoroutines := []int{1, 5, 100, 1000, 5000}
 	var n uint64 = 0
 	for _, curNum := range numGoroutines {
