@@ -4,7 +4,7 @@ package stack
 
 import (
 	"errors"
-	"sync"
+	"fmt"
 )
 
 var (
@@ -26,48 +26,24 @@ type Stack interface {
 	Pop() (Stack, error)
 }
 
-// Creates an empty stack
-func NewStack() Stack {
-	return emptyStackInstance
+type StackKind int
+
+const (
+	NonPooledImmutableStack = StackKind(iota)
+	PooledImmutableStack
+)
+
+type StackFactory interface {
+	NewStack() Stack
 }
 
-type emptyStack struct{}
-
-func (e emptyStack) Top() (interface{}, error) {
-	return nil, TopOfEmptyStackError
-}
-
-func (e emptyStack) Push(elem interface{}) Stack {
-	stack := NonEmptyStackPool.Get().(*nonEmptyStack)
-	stack.tail = e
-	stack.elem = elem
-	return stack
-}
-
-func (e emptyStack) Pop() (Stack, error) {
-	return nil, PopOnEmptyStackError
-}
-
-type nonEmptyStack struct {
-	tail Stack
-	elem interface{}
-}
-
-func (n *nonEmptyStack) Top() (interface{}, error) {
-	return n.elem, nil
-}
-
-func (n *nonEmptyStack) Push(elem interface{}) Stack {
-	stack := NonEmptyStackPool.Get().(*nonEmptyStack)
-	stack.tail = n
-	stack.elem = elem
-	return stack
-}
-
-func (n nonEmptyStack) Pop() (Stack, error) {
-	return n.tail, nil
-}
-
-var NonEmptyStackPool = sync.Pool{
-	New: func() interface{} { return &nonEmptyStack{} },
+func NewStackFactory(stackKind StackKind) (StackFactory, error) {
+	switch stackKind {
+	case NonPooledImmutableStack:
+		return &nonEmptyStackFactory{}, nil
+	case PooledImmutableStack:
+		return &nonEmptyStackFactory{}, nil
+	default:
+		return nil, fmt.Errorf("unknown stack kind %d", stackKind)
+	}
 }
