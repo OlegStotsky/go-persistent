@@ -5,8 +5,13 @@ import (
 	"testing"
 )
 
+var (
+	nonPooledStackFactory, _ = NewStackFactory(NonPooledImmutableStack)
+	pooledStackFactory, _    = NewStackFactory(PooledImmutableStack)
+)
+
 func TestEmptyStackTop(t *testing.T) {
-	e := NewStack()
+	e := nonPooledStackFactory.NewStack()
 	_, err := e.Top()
 	if assert.Error(t, err) {
 		assert.Equal(t, err, TopOfEmptyStackError)
@@ -14,7 +19,7 @@ func TestEmptyStackTop(t *testing.T) {
 }
 
 func TestEmptyStackPop(t *testing.T) {
-	e := NewStack()
+	e := nonPooledStackFactory.NewStack()
 	_, err := e.Pop()
 	if assert.Error(t, err) {
 		assert.Equal(t, err, PopOnEmptyStackError)
@@ -22,14 +27,14 @@ func TestEmptyStackPop(t *testing.T) {
 }
 
 func TestEmptyStackPush(t *testing.T) {
-	e := NewStack()
+	e := nonPooledStackFactory.NewStack()
 	newE := e.Push(1)
 	top, _ := newE.Top()
 	assert.Equal(t, top.(int), 1)
 }
 
 func TestEmptyStackPushAndThenPop(t *testing.T) {
-	e := NewStack()
+	e := nonPooledStackFactory.NewStack()
 	newE := e.Push(1)
 	newE, err := newE.Pop()
 	assert.NoError(t, err)
