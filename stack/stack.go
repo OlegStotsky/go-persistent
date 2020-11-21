@@ -2,7 +2,10 @@
 // All operations run on O(1) and are thread safe.
 package stack
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	TopOfEmptyStackError = errors.New("can't use top on empty stack")
@@ -23,41 +26,24 @@ type Stack interface {
 	Pop() (Stack, error)
 }
 
-// Creates an empty stack
-func NewStack() Stack {
-	return emptyStackInstance
+type StackKind int
+
+const (
+	NonPooledImmutableStack = StackKind(iota)
+	PooledImmutableStack
+)
+
+type StackFactory interface {
+	NewStack() Stack
 }
 
-type emptyStack struct{}
-
-func (e emptyStack) Top() (interface{}, error) {
-	return nil, TopOfEmptyStackError
-}
-
-func (e emptyStack) Push(elem interface{}) Stack {
-	return &nonEmptyStack{
-		tail: e,
-		elem: elem,
+func NewStackFactory(stackKind StackKind) (StackFactory, error) {
+	switch stackKind {
+	case NonPooledImmutableStack:
+		return &nonEmptyStackFactory{}, nil
+	case PooledImmutableStack:
+		return &nonEmptyStackFactory{}, nil
+	default:
+		return nil, fmt.Errorf("unknown stack kind %d", stackKind)
 	}
-}
-
-func (e emptyStack) Pop() (Stack, error) {
-	return nil, PopOnEmptyStackError
-}
-
-type nonEmptyStack struct {
-	tail Stack
-	elem interface{}
-}
-
-func (n *nonEmptyStack) Top() (interface{}, error) {
-	return n.elem, nil
-}
-
-func (n *nonEmptyStack) Push(elem interface{}) Stack {
-	return &nonEmptyStack{tail: n, elem: elem}
-}
-
-func (n nonEmptyStack) Pop() (Stack, error) {
-	return n.tail, nil
 }

@@ -12,10 +12,6 @@ type Point struct {
 	x, y float64
 }
 
-type Vector struct {
-	start, end Point
-}
-
 type MutableStack struct {
 	mu   sync.RWMutex
 	data []interface{}
@@ -86,7 +82,7 @@ func BenchmarkImmutableStackPush(b *testing.B) {
 	numGoroutines := []int{1, 5, 100, 1000, 5000}
 	for _, curNum := range numGoroutines {
 		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
-			userEditHistory := NewUserEditHistoryImmutable(NewStack())
+			userEditHistory := NewUserEditHistoryImmutable(nonPooledStackFactory.NewStack())
 			b.SetParallelism(curNum)
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
@@ -125,13 +121,32 @@ func BenchmarkMutableStackPushAndTop(b *testing.B) {
 		})
 	}
 }
+func BenchmarkMutableStackPushAndTopNoLock(b *testing.B) {
+	numGoroutines := []int{1, 5, 100, 1000, 5000}
+	var cnt uint64 = 0
+	for _, curNum := range numGoroutines {
+		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
+			h := NewUserEditHistoryMutable(NewMutableStack())
+			b.SetParallelism(curNum)
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					if atomic.AddUint64(&cnt, 1)%2 == 0 {
+						h.history.Push(1)
+					} else {
+						h.history.Top()
+					}
+				}
+			})
+		})
+	}
+}
 
 func BenchmarkImmutableStackPushAndTop(b *testing.B) {
 	numGoroutines := []int{1, 5, 100, 1000, 5000}
 	mu := sync.Mutex{}
 	n := 0
 	for _, curNum := range numGoroutines {
-		h := NewUserEditHistoryImmutable(NewStack())
+		h := NewUserEditHistoryImmutable(nonPooledStackFactory.NewStack())
 		b.SetParallelism(curNum)
 		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
@@ -149,6 +164,31 @@ func BenchmarkImmutableStackPushAndTop(b *testing.B) {
 						}
 					}
 					mu.Unlock()
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkImmutableStackPushAndTopNoLock(b *testing.B) {
+	numGoroutines := []int{1, 5, 100, 1000, 5000}
+	var n uint64 = 0
+	for _, curNum := range numGoroutines {
+		h := NewUserEditHistoryImmutable(nonPooledStackFactory.NewStack())
+		b.SetParallelism(curNum)
+		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					if atomic.AddUint64(&n, 1)%2 == 0 {
+						(*(*Stack)(h.history)).Top()
+					} else {
+						success := false
+						for !success {
+							oldVal := h.history
+							newVal := (*(*Stack)(oldVal)).Push(1)
+							success = atomic.CompareAndSwapPointer(&h.history, oldVal, unsafe.Pointer(&newVal))
+						}
+					}
 				}
 			})
 		})
