@@ -100,29 +100,6 @@ func BenchmarkImmutableStackPush(b *testing.B) {
 
 func BenchmarkMutableStackPushAndTop(b *testing.B) {
 	numGoroutines := []int{1, 5, 100, 1000, 5000}
-	mu := sync.Mutex{}
-	cnt := 0
-	for _, curNum := range numGoroutines {
-		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
-			h := NewUserEditHistoryMutable(NewMutableStack())
-			b.SetParallelism(curNum)
-			b.RunParallel(func(pb *testing.PB) {
-				for pb.Next() {
-					mu.Lock()
-					if cnt%2 == 0 {
-						h.history.Push(1)
-					} else {
-						h.history.Top()
-					}
-					cnt++
-					mu.Unlock()
-				}
-			})
-		})
-	}
-}
-func BenchmarkMutableStackPushAndTopNoLock(b *testing.B) {
-	numGoroutines := []int{1, 5, 100, 1000, 5000}
 	var cnt uint64 = 0
 	for _, curNum := range numGoroutines {
 		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
@@ -143,35 +120,6 @@ func BenchmarkMutableStackPushAndTopNoLock(b *testing.B) {
 
 func BenchmarkImmutableStackPushAndTop(b *testing.B) {
 	numGoroutines := []int{1, 5, 100, 1000, 5000}
-	mu := sync.Mutex{}
-	n := 0
-	for _, curNum := range numGoroutines {
-		h := NewUserEditHistoryImmutable(nonPooledStackFactory.NewStack())
-		b.SetParallelism(curNum)
-		b.Run(fmt.Sprintf("push with %d g", curNum), func(b *testing.B) {
-			b.RunParallel(func(pb *testing.PB) {
-				for pb.Next() {
-					mu.Lock()
-					n++
-					if n%2 == 0 {
-						(*(*Stack)(h.history)).Top()
-					} else {
-						success := false
-						for !success {
-							oldVal := h.history
-							newVal := (*(*Stack)(oldVal)).Push(1)
-							success = atomic.CompareAndSwapPointer(&h.history, oldVal, unsafe.Pointer(&newVal))
-						}
-					}
-					mu.Unlock()
-				}
-			})
-		})
-	}
-}
-
-func BenchmarkImmutableStackPushAndTopNoLock(b *testing.B) {
-	numGoroutines := []int{1, 5, 100, 1000, 5000}
 	var n uint64 = 0
 	for _, curNum := range numGoroutines {
 		h := NewUserEditHistoryImmutable(nonPooledStackFactory.NewStack())
@@ -181,13 +129,14 @@ func BenchmarkImmutableStackPushAndTopNoLock(b *testing.B) {
 				for pb.Next() {
 					if atomic.AddUint64(&n, 1)%2 == 0 {
 						(*(*Stack)(h.history)).Top()
-					} else {
-						success := false
-						for !success {
-							oldVal := h.history
-							newVal := (*(*Stack)(oldVal)).Push(1)
-							success = atomic.CompareAndSwapPointer(&h.history, oldVal, unsafe.Pointer(&newVal))
-						}
+						continue
+					}
+					done := false
+					for !done {
+						oldVal := h.history
+						newVal := (*(*Stack)(oldVal)).Push(1)
+						done = atomic.CompareAndSwapPointer(&h.history,
+							oldVal, unsafe.Pointer(&newVal))
 					}
 				}
 			})
