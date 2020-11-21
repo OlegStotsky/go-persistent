@@ -2,7 +2,10 @@
 // All operations run on O(1) and are thread safe.
 package stack
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 var (
 	TopOfEmptyStackError = errors.New("can't use top on empty stack")
@@ -35,10 +38,10 @@ func (e emptyStack) Top() (interface{}, error) {
 }
 
 func (e emptyStack) Push(elem interface{}) Stack {
-	return &nonEmptyStack{
-		tail: e,
-		elem: elem,
-	}
+	stack := NonEmptyStackPool.Get().(*nonEmptyStack)
+	stack.tail = e
+	stack.elem = elem
+	return stack
 }
 
 func (e emptyStack) Pop() (Stack, error) {
@@ -55,9 +58,16 @@ func (n *nonEmptyStack) Top() (interface{}, error) {
 }
 
 func (n *nonEmptyStack) Push(elem interface{}) Stack {
-	return &nonEmptyStack{tail: n, elem: elem}
+	stack := NonEmptyStackPool.Get().(*nonEmptyStack)
+	stack.tail = n
+	stack.elem = elem
+	return stack
 }
 
 func (n nonEmptyStack) Pop() (Stack, error) {
 	return n.tail, nil
+}
+
+var NonEmptyStackPool = sync.Pool{
+	New: func() interface{} { return &nonEmptyStack{} },
 }
